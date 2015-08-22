@@ -40,6 +40,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CreateInstanceInfo.cs" />
     <Compile Include="ISandboxeeInitializer.cs" />
     <Compile Include="ISandboxeeTerminator.cs" />
     <Compile Include="ISandboxHost.cs" />

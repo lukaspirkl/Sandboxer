@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Sandboxer.Tests.Interfaces;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -69,13 +70,24 @@ namespace Sandboxer.Tests
             unloadedPluginName.ShouldBe("My Plugin");
         }
 
+        [Test]
+        public void CallMethodImplementedInSandboxee()
+        {
+            var generators = sut.GetInstances<IWordGenerator>();
+
+            generators.Count().ShouldBe(1);
+            generators.First().GenerateWord().ShouldBe("Awesomeville");
+        }
+
         [SetUp]
         public void SetUp()
         {
             assemblyCreator.CreateAssembly("MyPlugin.dll", @"
 
+            using System;
             using System.Reflection;
             using Sandboxer;
+            using Sandboxer.Tests.Interfaces;
 
             [assembly: AssemblyTitle(""My Plugin"")]
             [assembly: Sandboxee]
@@ -86,6 +98,14 @@ namespace Sandboxer.Tests
                 {
                     public void Initialize()
                     {
+                    }
+                }
+
+                public class WordGenerator : MarshalByRefObject, IWordGenerator
+                {
+                    public string GenerateWord()
+                    {
+                        return ""Awesomeville"";
                     }
                 }
             }

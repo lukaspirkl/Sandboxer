@@ -10,6 +10,8 @@ namespace Sandboxer
         event EventHandler<SandboxeeEventArgs> Loaded;
 
         event EventHandler<SandboxeeEventArgs> Unloaded;
+
+        IEnumerable<T> GetInstances<T>();
     }
 
 }

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Shouldly;
 using System.CodeDom.Compiler;
+using Sandboxer.Tests.Interfaces;
 
 namespace Sandboxer.Tests
 {
@@ -30,21 +31,28 @@ namespace Sandboxer.Tests
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(fileName));
             }
-
-            var sandboxerDllPath = typeof(SandboxHost).Assembly.Location;
-            File.Copy(sandboxerDllPath, Path.Combine(Path.GetDirectoryName(fileName), Path.GetFileName(sandboxerDllPath)), true);
-
+            
             var parameters = new CompilerParameters()
             {
                 GenerateExecutable = false,
                 OutputAssembly = fileName
             };
-            
+
+            CopyAssemblyWithType(typeof(SandboxHost), Path.GetDirectoryName(fileName));
             parameters.ReferencedAssemblies.Add(typeof(SandboxHost).Assembly.Location);
+
+            CopyAssemblyWithType(typeof(IWordGenerator), Path.GetDirectoryName(fileName));
+            parameters.ReferencedAssemblies.Add(typeof(IWordGenerator).Assembly.Location);
 
             var r = CodeDomProvider.CreateProvider("CSharp").CompileAssemblyFromSource(parameters, code);
 
             r.Errors.HasErrors.ShouldBe(false, () => string.Join(Environment.NewLine, r.Errors.OfType<CompilerError>().Select(x => x.ErrorText)));
+        }
+
+        private void CopyAssemblyWithType(Type type, string destination)
+        {
+            var dllPath = type.Assembly.Location;
+            File.Copy(dllPath, Path.Combine(destination, Path.GetFileName(dllPath)), true);
         }
     }
 }

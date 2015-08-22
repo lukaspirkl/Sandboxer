@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 
 namespace Sandboxer
 {
@@ -10,21 +11,23 @@ namespace Sandboxer
     {
         private string pluginPath;
         private List<SandboxInfo> sandboxesInfo = new List<SandboxInfo>();
+        private FileSystemWatcher fileSystemWatcher;
 
         internal SandboxHost(string pluginPath)
         {
             this.pluginPath = pluginPath;
 
-            var fileSystemWatcher = new FileSystemWatcher(pluginPath);
+            //TODO: This is potentionaly not thread safe - domain can be unloaded meanwhile some work is happening
+            fileSystemWatcher = new FileSystemWatcher(pluginPath);
             fileSystemWatcher.Deleted += (s, e) => 
             {
                 var fileInfo = new FileInfo(e.FullPath);
                 var found = sandboxesInfo.FirstOrDefault(x => x.SandboxeeInfo.FilePath == fileInfo.FullName);
                 if(found != null)
                 {
+                    OnUnloaded(found.SandboxeeInfo);
                     sandboxesInfo.Remove(found);
                     AppDomain.Unload(found.AppDomain);
-                    OnUnloaded(found.SandboxeeInfo);
                 }
             };
             fileSystemWatcher.Created += (s, e) =>
@@ -97,8 +100,8 @@ namespace Sandboxer
                 ShadowCopyFiles = "true"
             });
 
-            var guest = (SandboxGuest)sandboxInfo.AppDomain.CreateInstanceAndUnwrap(typeof(SandboxGuest).Assembly.FullName, typeof(SandboxGuest).FullName);
-            sandboxInfo.SandboxeeInfo = guest.TryLoadAssembly(fileInfo.FullName);
+            sandboxInfo.Guest = (SandboxGuest)sandboxInfo.AppDomain.CreateInstanceAndUnwrap(typeof(SandboxGuest).Assembly.FullName, typeof(SandboxGuest).FullName);
+            sandboxInfo.SandboxeeInfo = sandboxInfo.Guest.TryLoadAssembly(fileInfo.FullName);
 
             if (sandboxInfo.SandboxeeInfo == null)
             {
@@ -114,6 +117,7 @@ namespace Sandboxer
             public SandboxeeInfo SandboxeeInfo { get; set; }
             public AppDomain AppDomain { get; set; }
             public DateTime FileCreated { get; set; }
+            public SandboxGuest Guest { get; set; }
         }
 
         public void Dispose()
@@ -122,6 +126,19 @@ namespace Sandboxer
             {
                 AppDomain.Unload(sandboxInfo.AppDomain);
             }
+            fileSystemWatcher.Dispose();
+        }
+
+        public IEnumerable<T> GetInstances<T>()
+        {
+            foreach (var sandboxInfo in sandboxesInfo)
+            {
+                foreach (var createInstanceInfo in sandboxInfo.Guest.GetCreateInstanceInfo(typeof(T).FullName))
+                {
+                    yield return (T)sandboxInfo.AppDomain.CreateInstanceAndUnwrap(createInstanceInfo.AssemblyFullName, createInstanceInfo.TypeFullName);
+                }
+            }
         }
     }
+    
 }

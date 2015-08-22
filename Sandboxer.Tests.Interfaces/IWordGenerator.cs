@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Sandboxer.Tests.Interfaces
 {
-    interface IWordGenerator
+    public interface IWordGenerator
     {
         string GenerateWord();
     }
