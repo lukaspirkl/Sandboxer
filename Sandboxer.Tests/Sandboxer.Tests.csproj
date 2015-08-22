@@ -50,8 +50,7 @@
   <ItemGroup>
     <Compile Include="AssemblyCreator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SetupFixture.cs" />
-    <Compile Include="SandboxerTests.cs" />
+    <Compile Include="SandboxHostTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sandboxer.Tests.Interfaces\Sandboxer.Tests.Interfaces.csproj">

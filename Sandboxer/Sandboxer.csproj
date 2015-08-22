@@ -41,12 +41,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ISandboxeeInitializer.cs" />
-    <Compile Include="ISandboxer.cs" />
+    <Compile Include="ISandboxeeTerminator.cs" />
+    <Compile Include="ISandboxHost.cs" />
+    <Compile Include="SandboxeeEventArgs.cs" />
     <Compile Include="SandboxeeInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SandboxeeAttribute.cs" />
-    <Compile Include="Sandboxer.cs" />
-    <Compile Include="SandboxerFactory.cs" />
+    <Compile Include="SandboxGuest.cs" />
+    <Compile Include="SandboxHost.cs" />
+    <Compile Include="SandboxHostFactory.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
