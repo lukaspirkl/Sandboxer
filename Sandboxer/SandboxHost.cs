@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Sandboxer
 {
@@ -20,21 +21,29 @@ namespace Sandboxer
 
             //TODO: This is potentionaly not thread safe - domain can be unloaded meanwhile some work is happening
             fileSystemWatcher = new FileSystemWatcher(pluginPath);
-            fileSystemWatcher.Deleted += (s, e) => 
+            fileSystemWatcher.Deleted += FileSystemWatchEventHandler;
+            fileSystemWatcher.Created += FileSystemWatchEventHandler;
+            fileSystemWatcher.Changed += FileSystemWatchEventHandler;
+            fileSystemWatcher.EnableRaisingEvents = true;
+        }
+
+        private void FileSystemWatchEventHandler(object sender, FileSystemEventArgs e)
+        {
+            if (e.ChangeType == WatcherChangeTypes.Changed || e.ChangeType == WatcherChangeTypes.Deleted)
             {
-                lock(sandboxesLock)
+                lock (sandboxesLock)
                 {
                     var fileInfo = new FileInfo(e.FullPath);
                     var found = sandboxesInfo.FirstOrDefault(x => x.SandboxeeInfo.FilePath == fileInfo.FullName);
                     if (found != null)
                     {
-                        OnUnloaded(found.SandboxeeInfo);
+                        Task.Run(() => { OnUnloaded(found.SandboxeeInfo); });
                         sandboxesInfo.Remove(found);
                         AppDomain.Unload(found.AppDomain);
                     }
                 }
-            };
-            fileSystemWatcher.Created += (s, e) =>
+            }
+            if (e.ChangeType == WatcherChangeTypes.Changed || e.ChangeType == WatcherChangeTypes.Created)
             {
                 lock (sandboxesLock)
                 {
@@ -43,12 +52,11 @@ namespace Sandboxer
                     if (sandboxInfo != null)
                     {
                         sandboxesInfo.Add(sandboxInfo);
-                        OnLoaded(sandboxInfo.SandboxeeInfo);
+                        Task.Run(() => { OnLoaded(sandboxInfo.SandboxeeInfo); });
                     }
                 }
-            };
-            fileSystemWatcher.EnableRaisingEvents = true;
-        }
+            }
+        } 
 
         public IEnumerable<SandboxeeInfo> AvailableSandboxees { get { return sandboxesInfo.Select(x => x.SandboxeeInfo); } }
 
@@ -80,7 +88,7 @@ namespace Sandboxer
             {
                 foreach (var sandboxInfo in sandboxesInfo)
                 {
-                    OnUnloaded(sandboxInfo.SandboxeeInfo);
+                    Task.Run(() => { OnUnloaded(sandboxInfo.SandboxeeInfo); });
                     AppDomain.Unload(sandboxInfo.AppDomain);
                 }
                 sandboxesInfo.Clear();
@@ -92,7 +100,7 @@ namespace Sandboxer
                     if (sandboxInfo != null)
                     {
                         sandboxesInfo.Add(sandboxInfo);
-                        OnLoaded(sandboxInfo.SandboxeeInfo);
+                        Task.Run(() => { OnLoaded(sandboxInfo.SandboxeeInfo); });
                     }
                 }
             }
@@ -156,5 +164,5 @@ namespace Sandboxer
             }
         }
     }
-    
+
 }

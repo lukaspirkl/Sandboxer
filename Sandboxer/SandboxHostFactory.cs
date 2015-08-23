@@ -5,7 +5,12 @@ namespace Sandboxer
 {
     public class SandboxHostFactory
     {
-        public string PluginPath { get; set; }
+        public SandboxHostFactory(string pluginPath)
+        {
+            PluginPath = pluginPath;
+        }
+
+        public string PluginPath { get; private set; }
 
         public ISandboxHost Create()
         {

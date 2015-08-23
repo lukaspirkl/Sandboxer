@@ -131,11 +131,7 @@ namespace Sandboxer.Tests
 
             ");
 
-            var factory = new SandboxHostFactory()
-            {
-                PluginPath = assemblyCreator.PluginsDir
-            };
-
+            var factory = new SandboxHostFactory(assemblyCreator.PluginsDir);
             sut = factory.Create();
         }
 
