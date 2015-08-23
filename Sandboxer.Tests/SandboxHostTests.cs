@@ -33,10 +33,12 @@ namespace Sandboxer.Tests
         [Test]
         public void LoadedEventIsRaisedWhenSandboxeeIsAdded()
         {
+            var finished = new ManualResetEvent(false);
             var loadedPluginName = string.Empty;
             sut.Loaded += (s, a) =>
             {
                 loadedPluginName = a.SandboxeeInfo.Name;
+                finished.Set();
             };
 
             new AssemblyCreator().CreateAssembly("NewPlugin.dll", @"
@@ -49,7 +51,7 @@ namespace Sandboxer.Tests
 
             ");
 
-            Thread.Sleep(TimeSpan.FromSeconds(1));
+            finished.WaitOne(TimeSpan.FromSeconds(1)).ShouldBe(true);
 
             loadedPluginName.ShouldBe("New Plugin");
         }
@@ -57,15 +59,17 @@ namespace Sandboxer.Tests
         [Test]
         public void UnloadEventIsRaisedWhenSandboxeeIsRemoved()
         {
+            var finished = new ManualResetEvent(false);
             var unloadedPluginName = string.Empty;
             sut.Unloaded += (s, a) =>
             {
                 unloadedPluginName = a.SandboxeeInfo.Name;
+                finished.Set();
             };
 
             File.Delete(Path.Combine(assemblyCreator.PluginsDir, "MyPlugin.dll"));
 
-            Thread.Sleep(TimeSpan.FromSeconds(1));
+            finished.WaitOne(TimeSpan.FromSeconds(1)).ShouldBe(true);
 
             unloadedPluginName.ShouldBe("My Plugin");
         }

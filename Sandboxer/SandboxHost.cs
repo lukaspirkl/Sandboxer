@@ -11,6 +11,7 @@ namespace Sandboxer
     {
         private string pluginPath;
         private List<SandboxInfo> sandboxesInfo = new List<SandboxInfo>();
+        private object sandboxesLock = new object();
         private FileSystemWatcher fileSystemWatcher;
 
         internal SandboxHost(string pluginPath)
@@ -21,23 +22,29 @@ namespace Sandboxer
             fileSystemWatcher = new FileSystemWatcher(pluginPath);
             fileSystemWatcher.Deleted += (s, e) => 
             {
-                var fileInfo = new FileInfo(e.FullPath);
-                var found = sandboxesInfo.FirstOrDefault(x => x.SandboxeeInfo.FilePath == fileInfo.FullName);
-                if(found != null)
+                lock(sandboxesLock)
                 {
-                    OnUnloaded(found.SandboxeeInfo);
-                    sandboxesInfo.Remove(found);
-                    AppDomain.Unload(found.AppDomain);
+                    var fileInfo = new FileInfo(e.FullPath);
+                    var found = sandboxesInfo.FirstOrDefault(x => x.SandboxeeInfo.FilePath == fileInfo.FullName);
+                    if (found != null)
+                    {
+                        OnUnloaded(found.SandboxeeInfo);
+                        sandboxesInfo.Remove(found);
+                        AppDomain.Unload(found.AppDomain);
+                    }
                 }
             };
             fileSystemWatcher.Created += (s, e) =>
             {
-                var fileInfo = new FileInfo(e.FullPath);
-                var sandboxInfo = TryLoadSandboxee(fileInfo);
-                if (sandboxInfo != null)
+                lock (sandboxesLock)
                 {
-                    sandboxesInfo.Add(sandboxInfo);
-                    OnLoaded(sandboxInfo.SandboxeeInfo);
+                    var fileInfo = new FileInfo(e.FullPath);
+                    var sandboxInfo = TryLoadSandboxee(fileInfo);
+                    if (sandboxInfo != null)
+                    {
+                        sandboxesInfo.Add(sandboxInfo);
+                        OnLoaded(sandboxInfo.SandboxeeInfo);
+                    }
                 }
             };
             fileSystemWatcher.EnableRaisingEvents = true;
@@ -69,21 +76,24 @@ namespace Sandboxer
 
         internal void ReloadAll()
         {
-            foreach (var sandboxInfo in sandboxesInfo)
+            lock (sandboxesLock)
             {
-                OnUnloaded(sandboxInfo.SandboxeeInfo);
-                AppDomain.Unload(sandboxInfo.AppDomain);
-            }
-            sandboxesInfo.Clear();
-
-            var directoryInfo = new DirectoryInfo(pluginPath);
-            foreach (var fileInfo in directoryInfo.GetFiles("*.dll"))
-            {
-                var sandboxInfo = TryLoadSandboxee(fileInfo);
-                if (sandboxInfo != null)
+                foreach (var sandboxInfo in sandboxesInfo)
                 {
-                    sandboxesInfo.Add(sandboxInfo);
-                    OnLoaded(sandboxInfo.SandboxeeInfo);
+                    OnUnloaded(sandboxInfo.SandboxeeInfo);
+                    AppDomain.Unload(sandboxInfo.AppDomain);
+                }
+                sandboxesInfo.Clear();
+
+                var directoryInfo = new DirectoryInfo(pluginPath);
+                foreach (var fileInfo in directoryInfo.GetFiles("*.dll"))
+                {
+                    var sandboxInfo = TryLoadSandboxee(fileInfo);
+                    if (sandboxInfo != null)
+                    {
+                        sandboxesInfo.Add(sandboxInfo);
+                        OnLoaded(sandboxInfo.SandboxeeInfo);
+                    }
                 }
             }
         }
@@ -122,20 +132,26 @@ namespace Sandboxer
 
         public void Dispose()
         {
-            foreach (var sandboxInfo in sandboxesInfo)
+            lock (sandboxesLock)
             {
-                AppDomain.Unload(sandboxInfo.AppDomain);
+                foreach (var sandboxInfo in sandboxesInfo)
+                {
+                    AppDomain.Unload(sandboxInfo.AppDomain);
+                }
             }
             fileSystemWatcher.Dispose();
         }
 
         public IEnumerable<T> GetInstances<T>()
         {
-            foreach (var sandboxInfo in sandboxesInfo)
+            lock (sandboxesLock)
             {
-                foreach (var createInstanceInfo in sandboxInfo.Guest.GetCreateInstanceInfo(typeof(T).FullName))
+                foreach (var sandboxInfo in sandboxesInfo)
                 {
-                    yield return (T)sandboxInfo.AppDomain.CreateInstanceAndUnwrap(createInstanceInfo.AssemblyFullName, createInstanceInfo.TypeFullName);
+                    foreach (var createInstanceInfo in sandboxInfo.Guest.GetCreateInstanceInfo(typeof(T).FullName))
+                    {
+                        yield return (T)sandboxInfo.AppDomain.CreateInstanceAndUnwrap(createInstanceInfo.AssemblyFullName, createInstanceInfo.TypeFullName);
+                    }
                 }
             }
         }
